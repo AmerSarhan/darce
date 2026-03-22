@@ -4,6 +4,8 @@
 
 Darce is an open-source desktop code editor with an AI agent that builds software for you — and teaches you what it's doing while it works. Think of it as a senior engineer who writes your code and explains every decision.
 
+*Darce (دَرْس) means "a lesson" in Arabic.*
+
 **Open source. Local-first. Any model. Your keys.**
 
 ---
