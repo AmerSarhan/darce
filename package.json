@@ -1,0 +1,42 @@
+{
+  "name": "darce",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "tauri": "tauri"
+  },
+  "description": "The AI coder that makes you smarter, not lazier.",
+  "license": "MIT",
+  "author": "Amer Sarhan",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AmerSarhan/darce.git"
+  },
+  "homepage": "https://darce.dev",
+  "keywords": ["ai", "code-editor", "coding-agent", "tauri", "svelte", "openrouter", "developer-tools", "learn-to-code"],
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.0.0",
+    "@tailwindcss/vite": "^4.2.2",
+    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/cli": "^2.10.1",
+    "svelte": "^5.54.1",
+    "svelte-check": "^4.4.5",
+    "tailwindcss": "^4.2.2",
+    "tslib": "^2.8.1",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.1"
+  },
+  "dependencies": {
+    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "@tauri-apps/plugin-fs": "^2.4.5",
+    "@tauri-apps/plugin-http": "^2.5.7",
+    "@tauri-apps/plugin-shell": "^2.3.5",
+    "@tauri-apps/plugin-sql": "^2.3.2",
+    "monaco-editor": "^0.55.1"
+  }
+}

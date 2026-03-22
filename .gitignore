@@ -1,0 +1,16 @@
+.claude/
+node_modules/
+dist/
+target/
+*.db
+*.db-journal
+.env
+.env.*
+.env.local
+.env.build
+.DS_Store
+Thumbs.db
+*.log
+dev.bat
+build.bat
+getenv.bat
