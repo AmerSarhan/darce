@@ -24,15 +24,24 @@
     statusText = "";
     liveActions = [];
   }
-  let liveActions = $state<{ id: number; idx: number; type: string; name: string; path?: string; lines?: number; command?: string; done: boolean }[]>([]);
+  let liveActions = $state<{ id: number; idx: number; type: string; name: string; path?: string; lines?: number; command?: string; code?: string; done: boolean; collapsed?: boolean }[]>([]);
   let actionCounter = 0;
   let streamingToolNames = $state<Map<number, string>>(new Map());
   let streamingToolLines = $state<Map<number, number>>(new Map());
+  let streamingToolCode = $state<Map<number, string>>(new Map());
 
-  // Scroll
+  // Scroll — throttled to avoid DOM thrashing
+  let scrollTimer: ReturnType<typeof setTimeout> | null = null;
+  function scrollToBottom() {
+    if (scrollTimer) return;
+    scrollTimer = setTimeout(() => {
+      messagesEnd?.scrollIntoView({ behavior: "smooth" });
+      scrollTimer = null;
+    }, 100);
+  }
   $effect(() => {
     if (chat.messages.length || chat.isStreaming || liveActions.length) {
-      requestAnimationFrame(() => messagesEnd?.scrollIntoView({ behavior: "smooth" }));
+      scrollToBottom();
     }
   });
 
@@ -102,37 +111,42 @@ IMPORTANT:
           chat.appendToken(token);
         },
         onToolStreaming(index, name, _chunk, totalArgs) {
-          // Track tool name as it streams in
-          if (name && !streamingToolNames.has(index)) {
-            streamingToolNames = new Map(streamingToolNames).set(index, name);
+          // Track tool name as it streams in (name only arrives on first chunk)
+          if (name) {
+            console.log(`[Darce UI] Tool streaming started: index=${index} name=${name}`);
+            if (!streamingToolNames.has(index)) {
+              streamingToolNames = new Map(streamingToolNames).set(index, name);
+            }
           }
 
-          // Count lines in the content being written
-          if (name === "create_file") {
+          // Use the stored name — `name` param is empty after first chunk
+          const toolName = streamingToolNames.get(index) || name;
+          if (totalArgs.length % 200 === 0) console.log(`[Darce UI] Tool ${toolName} args: ${totalArgs.length} chars`);
+
+          if (toolName === "create_file") {
             try {
-              // Try to extract path and count lines from partial JSON
               const pathMatch = totalArgs.match(/"path"\s*:\s*"([^"]+)"/);
-              const contentSoFar = totalArgs.match(/"content"\s*:\s*"([\s\S]*?)(?:"|$)/);
+              const contentSoFar = totalArgs.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)(?:"|$)/);
               if (contentSoFar) {
-                const lines = (contentSoFar[1].match(/\\n/g) || []).length + 1;
+                const decoded = contentSoFar[1].replace(/\\n/g, "\n").replace(/\\t/g, "\t").replace(/\\"/g, '"');
+                const lines = decoded.split("\n").length;
                 streamingToolLines = new Map(streamingToolLines).set(index, lines);
+                streamingToolCode = new Map(streamingToolCode).set(index, decoded);
               }
-              // Show the path being written
               if (pathMatch) {
                 const existingAction = liveActions.find(a => a.idx === index && !a.done);
                 if (!existingAction) {
                   const id = ++actionCounter;
-                  liveActions = [...liveActions, { id, idx: index, type: "tool", name: "create_file", path: pathMatch[1], lines: 0, done: false }];
+                  liveActions = [...liveActions, { id, idx: index, type: "tool", name: "create_file", path: pathMatch[1], lines: 0, code: "", done: false, collapsed: false }];
                   statusText = `Writing ${pathMatch[1]}...`;
                 } else {
-                  // Update lines count reactively
                   liveActions = liveActions.map(a =>
-                    a.idx === index && !a.done ? { ...a, lines: streamingToolLines.get(index) || 0 } : a
+                    a.idx === index && !a.done ? { ...a, lines: streamingToolLines.get(index) || 0, code: streamingToolCode.get(index) || "" } : a
                   );
                 }
               }
             } catch { /* partial JSON, skip */ }
-          } else if (name === "run_command" && !liveActions.find(a => a.idx === index)) {
+          } else if (toolName === "run_command" && !liveActions.find(a => a.idx === index)) {
             try {
               const cmdMatch = totalArgs.match(/"command"\s*:\s*"([^"]+)"/);
               if (cmdMatch) {
@@ -141,7 +155,7 @@ IMPORTANT:
                 statusText = `Will run: ${cmdMatch[1]}`;
               }
             } catch { /* skip */ }
-          } else if (name === "read_file" && !liveActions.find(a => a.idx === index)) {
+          } else if (toolName === "read_file" && !liveActions.find(a => a.idx === index)) {
             try {
               const pathMatch = totalArgs.match(/"path"\s*:\s*"([^"]+)"/);
               if (pathMatch) {
@@ -153,6 +167,7 @@ IMPORTANT:
           }
         },
         onToolStart(name, args) {
+          console.log(`[Darce UI] onToolStart: ${name}`, args);
           // Tool is fully parsed and about to execute — mark existing or create new
           const existing = liveActions.find(a => a.name === name && !a.done);
           if (!existing) {
@@ -160,16 +175,19 @@ IMPORTANT:
             const action: typeof liveActions[0] = { id, idx: -1, type: "tool", name, done: false };
             if (name === "create_file") {
               action.path = args.path as string;
-              action.lines = ((args.content as string) || "").split("\n").length;
+              const content = (args.content as string) || "";
+              action.lines = content.split("\n").length;
+              action.code = content;
+              action.collapsed = false;
             } else if (name === "read_file") { action.path = args.path as string; }
             else if (name === "run_command") { action.command = args.command as string; }
             else if (name === "delete_file") { action.path = args.path as string; }
             liveActions = [...liveActions, action];
           } else {
-            // Update with final values
             if (name === "create_file") {
+              const content = (args.content as string) || "";
               liveActions = liveActions.map(a =>
-                a === existing ? { ...a, path: args.path as string, lines: ((args.content as string) || "").split("\n").length } : a
+                a === existing ? { ...a, path: args.path as string, lines: content.split("\n").length, code: content } : a
               );
             }
           }
@@ -179,14 +197,15 @@ IMPORTANT:
             : name === "list_files" ? "Scanning..."
             : `${name}...`;
         },
-        onToolEnd(name, _result) {
+        onToolEnd(name, result) {
+          console.log(`[Darce UI] onToolEnd: ${name}`, result.slice(0, 100));
           liveActions = liveActions.map((a) =>
             a.name === name && !a.done ? { ...a, done: true } : a
           );
           statusText = "Thinking...";
-          // Clear streaming state for next round
           streamingToolNames = new Map();
           streamingToolLines = new Map();
+          streamingToolCode = new Map();
         },
         onDone(finalText) {
           statusText = "";
@@ -207,6 +226,7 @@ IMPORTANT:
           liveActions = [];
           streamingToolNames = new Map();
           streamingToolLines = new Map();
+          streamingToolCode = new Map();
         },
         onError(error) {
           statusText = "";
@@ -215,6 +235,7 @@ IMPORTANT:
           liveActions = [];
           streamingToolNames = new Map();
           streamingToolLines = new Map();
+          streamingToolCode = new Map();
         },
       },
     );
@@ -380,11 +401,22 @@ IMPORTANT:
         <!-- Live tool actions -->
         {#each liveActions as action (action.id)}
           {#if action.name === "create_file"}
-            <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs animate-in fade-in slide-in-from-bottom-1 {action.done ? 'bg-emerald-950/20 border border-emerald-900/30' : 'bg-emerald-950/10 border border-emerald-900/20'}" style="animation-duration: 150ms;">
-              <span class="text-emerald-400 font-mono text-[11px] font-semibold min-w-6 text-right tabular-nums">+{action.lines || 0}</span>
-              <span class="text-zinc-400 font-mono text-[11px]">{action.path || "..."}</span>
-              {#if !action.done}
-                <div class="shimmer w-1.5 h-1.5 rounded-full flex-shrink-0 ml-auto"></div>
+            <div class="rounded-md overflow-hidden animate-in fade-in slide-in-from-bottom-1 {action.done ? 'border border-emerald-900/30' : 'border border-emerald-900/20'}" style="animation-duration: 150ms;">
+              <!-- File header -->
+              <button onclick={() => { liveActions = liveActions.map(a => a.id === action.id ? { ...a, collapsed: !a.collapsed } : a); }}
+                class="w-full flex items-center gap-2 px-2.5 py-1.5 text-xs cursor-pointer hover:bg-emerald-950/30 transition-colors {action.done ? 'bg-emerald-950/20' : 'bg-emerald-950/10'}">
+                <svg class="w-3 h-3 text-zinc-500 flex-shrink-0 transition-transform {action.collapsed ? '' : 'rotate-90'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+                <span class="text-emerald-400 font-mono text-[11px] font-semibold tabular-nums">+{action.lines || 0}</span>
+                <span class="text-zinc-400 font-mono text-[11px] truncate">{action.path || "..."}</span>
+                {#if !action.done}
+                  <div class="shimmer w-1.5 h-1.5 rounded-full flex-shrink-0 ml-auto"></div>
+                {/if}
+              </button>
+              <!-- Live code preview -->
+              {#if !action.collapsed && action.code}
+                <div class="max-h-48 overflow-auto bg-zinc-950/60">
+                  <pre class="p-2 text-[10px] leading-relaxed font-mono text-zinc-400 whitespace-pre-wrap break-all"><code>{action.code}</code>{#if !action.done}<span class="cursor-blink"></span>{/if}</pre>
+                </div>
               {/if}
             </div>
           {:else if action.name === "run_command"}

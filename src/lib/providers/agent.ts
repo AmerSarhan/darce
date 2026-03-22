@@ -46,6 +46,9 @@ export async function runAgent(
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 120000);
 
+      // Accumulate tool call args for streaming UI
+      const streamingArgs = new Map<number, string>();
+
       const result = await sendCompletion(
         messages,
         systemPrompt,
@@ -55,9 +58,13 @@ export async function runAgent(
             callbacks.onToken(token);
           },
           onToolCallDelta(index, id, name, argsChunk) {
-            // Track streaming tool calls for live UI
+            // Accumulate args so ChatPanel can parse partial JSON
+            if (argsChunk) {
+              const prev = streamingArgs.get(index) || "";
+              streamingArgs.set(index, prev + argsChunk);
+            }
             if (name || argsChunk) {
-              callbacks.onToolStreaming(index, name || "", argsChunk || "", "");
+              callbacks.onToolStreaming(index, name || "", argsChunk || "", streamingArgs.get(index) || "");
             }
           },
         },
@@ -69,7 +76,7 @@ export async function runAgent(
       console.log(`[Darce] Done. Content: ${result.content.length} chars, Tools: ${result.toolCalls.length}, Finish: ${result.finishReason}`);
 
       if (result.content) {
-        lastTextContent = result.content;
+        lastTextContent += (lastTextContent ? "\n\n" : "") + result.content;
       }
 
       // No tool calls — we're done

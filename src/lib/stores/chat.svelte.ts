@@ -48,8 +48,19 @@ class ChatStore {
     this.error = null;
   }
 
+  private _tokenBuffer = "";
+  private _tokenFlushScheduled = false;
+
   appendToken(token: string) {
-    this.streamingContent += token;
+    this._tokenBuffer += token;
+    if (!this._tokenFlushScheduled) {
+      this._tokenFlushScheduled = true;
+      requestAnimationFrame(() => {
+        this.streamingContent += this._tokenBuffer;
+        this._tokenBuffer = "";
+        this._tokenFlushScheduled = false;
+      });
+    }
   }
 
   finishStreaming(model: string, projectId: string) {

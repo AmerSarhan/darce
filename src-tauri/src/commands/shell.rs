@@ -23,7 +23,10 @@ pub fn kill_process(state: State<'_, ProcessState>) -> Result<(), String> {
         }
         #[cfg(not(target_os = "windows"))]
         {
-            unsafe { libc::kill(p as i32, libc::SIGTERM); }
+            std::process::Command::new("kill")
+                .arg(p.to_string())
+                .output()
+                .map_err(|e| format!("Failed to kill process: {}", e))?;
         }
         Ok(())
     } else {
