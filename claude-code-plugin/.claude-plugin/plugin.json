@@ -1,0 +1,11 @@
+{
+  "name": "darce",
+  "description": "The AI coder that makes you smarter, not lazier. Teaches you what it builds — concepts, patterns, and tradeoffs — right inside Claude Code.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Amer Sarhan"
+  },
+  "homepage": "https://darce.dev",
+  "repository": "https://github.com/AmerSarhan/darce",
+  "license": "MIT"
+}
