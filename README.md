@@ -76,9 +76,13 @@ You pick the depth. Switch anytime.
 
 ### Download
 
-**Windows:** [Download Darce v0.1.0-beta](https://github.com/AmerSarhan/darce/releases/latest)
+[Download Darce](https://github.com/AmerSarhan/darce/releases/latest) — pick the installer for your platform:
 
-macOS and Linux builds coming soon. Build from source below.
+| Platform | Format |
+|----------|--------|
+| **Windows** | `.msi` or `.exe` |
+| **macOS** | `.dmg` |
+| **Linux** | `.deb` or `.AppImage` |
 
 ### Build From Source
 
