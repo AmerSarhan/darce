@@ -2,16 +2,46 @@
 description: Explain a specific file or concept in depth
 ---
 
-# /darce:explain
-
 The user wants to understand "$ARGUMENTS".
 
-If it's a file path, read the file and explain:
-- What the file does and its role in the project
-- Key patterns and why they were chosen
-- How data flows through it
-- Gotchas and things that could trip someone up
+If it's a file path, read the file. If it's a concept, find real examples in the codebase.
 
-If it's a concept (e.g., "server components", "closures", "middleware"), explain it in the context of this specific codebase — point to real examples in the project, not generic textbook definitions.
+You MUST format your response EXACTLY like this template:
 
-Adjust depth based on the code's complexity. Be direct and practical.
+---
+
+### darce:explain — `{file or concept}`
+
+> **TL;DR:** {one sentence — what this is and why it exists}
+
+**What it does**
+{3-5 sentences. Role in the project, what triggers it, what it produces.}
+
+**How it works**
+
+```
+{simple ASCII flow showing data/control flow, 3-5 lines max}
+e.g.:
+  User clicks save -> handleSave() -> validates -> writes to disk -> updates UI state
+```
+
+**Key patterns**
+
+| Pattern | Why it's used here |
+|---------|-------------------|
+| {name} | {one sentence} |
+| {name} | {one sentence} |
+
+**Watch out for**
+- {Gotcha 1 — something that could trip you up}
+- {Gotcha 2}
+
+**Related files:** `{path}`, `{path}`
+
+---
+
+Rules:
+- Ground everything in the actual code, not generic definitions
+- The ASCII flow diagram is mandatory — it makes the structure scannable
+- If explaining a concept, point to specific files and line numbers in this project
+- No filler. No "let's explore". Just explain.

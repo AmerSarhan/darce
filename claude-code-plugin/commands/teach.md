@@ -2,20 +2,48 @@
 description: Break down recent code changes — explain patterns, decisions, and tradeoffs
 ---
 
-# /darce:teach
+Look at the code that was just written or changed in this session. Break it down for the developer.
 
-Look at the code that was just written or changed in this session. Break it down like a senior engineer explaining to a teammate.
+If "$ARGUMENTS" is provided, focus on that topic or file.
 
-For each file touched, produce:
+You MUST format your response EXACTLY like this template:
 
-1. **Summary** — one sentence on what changed and why
-2. **Concepts** (3-5) — each with:
-   - Name and category tag (react, css, js, ts, node, rust, pattern, security, perf)
-   - One-liner: what it is
-   - Explanation: why it matters here, when you'd use it, common mistakes
-   - Difficulty: beginner / intermediate / advanced
-3. **Quiz** (1 question) — multiple choice about the code that was just written, with explanation of the correct answer
+---
 
-If the user passes arguments like "$ARGUMENTS", focus the teaching on that topic or file.
+### darce:teach
 
-Format the output clearly with markdown. Keep it practical — no textbook fluff. Explain what a working developer actually needs to know.
+> **{filename}** — {one sentence summary of what changed}
+
+**Concepts**
+
+| # | Concept | Tag | Difficulty |
+|---|---------|-----|------------|
+| 1 | {name} | `{tag}` | {level} |
+| 2 | {name} | `{tag}` | {level} |
+| 3 | {name} | `{tag}` | {level} |
+
+**1. {Concept Name}**
+{2-3 sentence explanation — what it is, why it was used here, common mistake to avoid}
+
+**2. {Concept Name}**
+{2-3 sentence explanation}
+
+**3. {Concept Name}**
+{2-3 sentence explanation}
+
+**Why this approach?**
+{1-2 sentences on what alternatives existed and why this was chosen}
+
+**Quick check:** {One question about the code}
+A) {option}  B) {option}  C) {option}  D) {option}
+
+> Answer: **{letter}** — {one sentence explanation}
+
+---
+
+Rules:
+- 3-5 concepts per file, no more
+- Tags: `react` `css` `js` `ts` `node` `rust` `pattern` `security` `perf` `html` `api`
+- Difficulty: beginner / intermediate / advanced
+- No filler, no "let's dive in", no "great question". Just teach.
+- Keep explanations grounded in the actual code, not textbook definitions

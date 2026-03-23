@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo '[darce] Code changed — run /darce:teach to learn what was just built'"
+            "command": "echo '--- darce: code changed. /darce:teach to learn | /darce:quiz to test ---'"
           }
         ]
       }

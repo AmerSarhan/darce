@@ -2,22 +2,60 @@
 description: Quiz yourself on the code you just shipped
 ---
 
-# /darce:quiz
+Look at code recently written or edited in this session. Generate a quiz.
 
-Look at the code that was recently written or edited in this session. Generate 3 multiple-choice questions that test real understanding — not trivia.
+If "$ARGUMENTS" is provided, focus on that topic or file.
 
-Good questions test:
-- Why a pattern was chosen over alternatives
-- What would break if you changed something
-- Edge cases the developer should be aware of
-- Security or performance implications
+You MUST format your response EXACTLY like this template:
 
-For each question:
-1. The question
-2. Four options (A-D)
-3. The correct answer
-4. A short explanation of why
+---
 
-If "$ARGUMENTS" is provided, focus the quiz on that topic or file.
+### darce:quiz
 
-Present questions one at a time. Wait for the user to answer before revealing the next one.
+> Testing your understanding of recent changes.
+
+**Question 1 of 3**
+
+{Question about why a pattern was chosen, what would break, or an edge case}
+
+```
+A) {option}
+B) {option}
+C) {option}
+D) {option}
+```
+
+Type your answer (A/B/C/D) and I'll tell you if you're right.
+
+---
+
+After the user answers, respond with:
+
+---
+
+{**Correct!** or **Not quite.**} The answer is **{letter}**.
+
+{2-3 sentence explanation grounded in the actual code}
+
+---
+
+Then present the next question in the same format.
+
+After all 3 questions, show:
+
+---
+
+**Score: {X}/3**
+
+{If 3/3: "Solid — you own this code."}
+{If 2/3: "Close. Review the one you missed before moving on."}
+{If 1/3 or 0/3: "Worth re-reading the code. Run /darce:teach for a breakdown."}
+
+---
+
+Rules:
+- 3 questions total, presented one at a time
+- Test understanding, not trivia — why, not what
+- Good questions: "What breaks if...", "Why not use...", "What happens when..."
+- Bad questions: "What does X stand for?", "Which line number..."
+- Wait for user answer before revealing the next question
