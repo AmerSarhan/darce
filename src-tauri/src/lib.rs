@@ -17,6 +17,7 @@ pub fn run() {
                 .add_migrations("sqlite:darce.db", db::get_migrations())
                 .build(),
         )
+        .plugin(tauri_plugin_aptabase::Builder::new("A-EU-1239712183").build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
