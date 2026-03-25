@@ -116,6 +116,8 @@ RULES:
     currentModel = "";
     abortController = new AbortController();
 
+    import("@aptabase/tauri").then(m => m.trackEvent("chat_sent", { gear: settings.gear, provider: settings.provider })).catch(() => {});
+
     const projectId = project.path || "no-project";
     const now = new Date();
     const dateStr = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });

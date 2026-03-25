@@ -28,6 +28,7 @@
       if (valid) {
         settings.setProvider("auto");
         settings.setApiKey(apiKey.trim());
+        import("@aptabase/tauri").then(m => m.trackEvent("onboarding_complete")).catch(() => {});
       } else {
         error = "Invalid key. Check openrouter.ai/keys.";
       }

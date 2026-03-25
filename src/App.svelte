@@ -19,11 +19,13 @@
   import { project } from "$lib/stores/project.svelte";
   import { chat } from "$lib/stores/chat.svelte";
   import { tauriInvoke } from "$lib/utils/ipc";
+  import { trackEvent } from "@aptabase/tauri";
   import type { FileEntry } from "$lib/types";
 
   onMount(async () => {
     await settings.init();
     updater.init();
+    trackEvent("app_launched", { gear: settings.gear, provider: settings.provider });
     // Reopen last project
     if (settings.lastProjectPath) {
       try {
