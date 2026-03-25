@@ -171,6 +171,12 @@ Most AI coding tools optimize for speed. Darce optimizes for understanding.
 
 ---
 
+## Partners
+
+<a href="https://crawlrocket.com"><img src="https://www.crawlrocket.com/_next/image?url=%2Flogo.png&w=32&q=75&dpl=dpl_HGFkQ5RBZam4VtMJWzvjqk7wrQHM" alt="CrawlRocket" width="20" align="top" /></a> **[CrawlRocket](https://crawlrocket.com)** — Web scraping API powering Darce's browse and search tools. Headless browser scraping, Google search, structured data extraction.
+
+---
+
 ## Roadmap
 
 - [x] Smart model rotation (Auto / Auto Fast / Manual)
