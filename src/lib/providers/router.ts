@@ -1,26 +1,33 @@
 /**
- * Provider Router — sends chat completions to the right API based on settings.
- * Supports: OpenRouter, Anthropic Direct, Claude CLI, Ollama
+ * Provider Router — routes chat completions to the right path.
+ * - auto / auto-fast → sendAuto() with smart model rotation
+ * - manual → direct OpenRouter call with selected model
+ *
+ * Prompt caching:
+ * - Most providers (Kimi, OpenAI, DeepSeek, Gemini, Groq) cache automatically
+ * - Anthropic requires explicit cache_control — we add it for Claude models
  */
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
-import { tauriInvoke } from "$lib/utils/ipc";
 import { settings } from "$lib/stores/settings.svelte";
+import { sendAuto } from "./auto-provider";
+import { terminal } from "$lib/stores/terminal.svelte";
 import type { AgentMessage } from "./agent";
 
-interface ProviderResponse {
+export interface ProviderResponse {
   content: string;
   toolCalls: { id: string; name: string; args: string }[];
   finishReason: string;
+  modelUsed?: string;
 }
 
-interface StreamCallbacks {
+export interface StreamCallbacks {
   onToken: (token: string) => void;
   onToolCallDelta: (index: number, id: string | null, name: string | null, argsChunk: string | null) => void;
 }
 
 /**
- * Send a streaming chat completion to the active provider.
- * Returns parsed content + tool calls after stream completes.
+ * Send a streaming chat completion.
+ * Auto modes use smart model rotation; manual mode uses direct OpenRouter.
  */
 export async function sendCompletion(
   messages: AgentMessage[],
@@ -31,33 +38,39 @@ export async function sendCompletion(
 ): Promise<ProviderResponse> {
   const provider = settings.provider;
 
-  if (provider === "claude-cli") {
-    return sendClaudeCli(messages, systemPrompt, callbacks);
+  // Auto modes → smart model rotation with fallback
+  if (provider === "auto" || provider === "auto-fast") {
+    const result = await sendAuto(
+      messages,
+      systemPrompt,
+      tools,
+      {
+        ...callbacks,
+        onModelSwitch(from, to, reason) {
+          console.log(`[Darce] Switching ${from} → ${to}: ${reason}`);
+          terminal.addLine(`Switching to ${to.split("/").pop()}...`, "system");
+        },
+      },
+      signal,
+      settings.apiKey,
+      provider,
+    );
+    return result;
   }
 
-  if (provider === "ollama") {
-    return sendOllama(messages, systemPrompt, tools, callbacks, signal);
-  }
+  // Manual mode → direct OpenRouter call
+  const model = settings.defaultManualModel;
+  const body = buildRequestBody(model, systemPrompt, messages, tools);
 
-  // OpenRouter and Anthropic Direct both use OpenAI-compatible format
-  const { url, headers } = getProviderConfig();
-
-  const body: any = {
-    model: settings.defaultModel,
-    messages: [{ role: "system", content: systemPrompt }, ...messages],
-    stream: true,
-  };
-
-  // Only add tools for providers that support them
-  if (provider !== "anthropic" || tools.length > 0) {
-    body.tools = tools;
-    body.tool_choice = "auto";
-  }
-
-  const response = await tauriFetch(url, {
+  const response = await tauriFetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     signal,
-    headers: { ...headers, "Content-Type": "application/json" },
+    headers: {
+      "Authorization": `Bearer ${settings.apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://darce.dev",
+      "X-OpenRouter-Title": "Darce",
+    },
     body: JSON.stringify(body),
   });
 
@@ -72,28 +85,36 @@ export async function sendCompletion(
   return parseSSEStream(response, callbacks);
 }
 
-function getProviderConfig(): { url: string; headers: Record<string, string> } {
-  const provider = settings.provider;
+/**
+ * Build the request body with prompt caching support.
+ * - Anthropic models: add cache_control at top level for automatic caching
+ * - All other providers: caching is automatic, no config needed
+ */
+export function buildRequestBody(
+  model: string,
+  systemPrompt: string,
+  messages: AgentMessage[],
+  tools: any[],
+): Record<string, unknown> {
+  const isAnthropic = model.includes("anthropic/") || model.includes("claude");
 
-  if (provider === "anthropic") {
-    return {
-      url: "https://api.anthropic.com/v1/messages",
-      headers: {
-        "x-api-key": settings.anthropicKey,
-        "anthropic-version": "2023-06-01",
-      },
-    };
+  const body: Record<string, unknown> = {
+    model,
+    messages: [{ role: "system", content: systemPrompt }, ...messages],
+    stream: true,
+  };
+
+  if (tools.length > 0) {
+    body.tools = tools;
+    body.tool_choice = "auto";
   }
 
-  // Default: OpenRouter
-  return {
-    url: "https://openrouter.ai/api/v1/chat/completions",
-    headers: {
-      "Authorization": `Bearer ${settings.apiKey}`,
-      "HTTP-Referer": "https://darce.dev",
-      "X-OpenRouter-Title": "Darce",
-    },
-  };
+  // Anthropic prompt caching — automatic mode (cache breakpoint on last cacheable block)
+  if (isAnthropic) {
+    body.cache_control = { type: "ephemeral" };
+  }
+
+  return body;
 }
 
 async function parseSSEStream(response: Response, callbacks: StreamCallbacks): Promise<ProviderResponse> {
@@ -105,6 +126,7 @@ async function parseSSEStream(response: Response, callbacks: StreamCallbacks): P
   let content = "";
   let toolCalls = new Map<number, { id: string; name: string; args: string }>();
   let finishReason = "";
+  let modelUsed: string | undefined;
 
   while (true) {
     const { done, value } = await reader.read();
@@ -125,6 +147,11 @@ async function parseSSEStream(response: Response, callbacks: StreamCallbacks): P
 
       try {
         const parsed = JSON.parse(data);
+
+        if (!modelUsed && parsed.model) {
+          modelUsed = parsed.model;
+        }
+
         const choice = parsed.choices?.[0];
         if (!choice) continue;
 
@@ -155,7 +182,7 @@ async function parseSSEStream(response: Response, callbacks: StreamCallbacks): P
             );
           }
         }
-      } catch { /* skip */ }
+      } catch { /* skip malformed SSE chunks */ }
     }
   }
 
@@ -163,121 +190,6 @@ async function parseSSEStream(response: Response, callbacks: StreamCallbacks): P
     content,
     toolCalls: Array.from(toolCalls.values()),
     finishReason,
+    modelUsed,
   };
-}
-
-/**
- * Claude CLI provider — spawns `claude` subprocess
- */
-async function sendClaudeCli(
-  messages: AgentMessage[],
-  systemPrompt: string,
-  callbacks: StreamCallbacks,
-): Promise<ProviderResponse> {
-  // Extract the actual user request — strip context prefix
-  const lastUserMsg = messages.filter(m => m.role === "user").at(-1);
-  let prompt = lastUserMsg?.content || "";
-
-  // The context prefix is added before the user message, strip it
-  // Format is: "[Date: ...]\nProject: ...\n\nActual user message"
-  const userMsgIdx = prompt.lastIndexOf("\n\n");
-  if (userMsgIdx > 0) {
-    prompt = prompt.slice(userMsgIdx + 2);
-  }
-
-  const { project } = await import("$lib/stores/project.svelte");
-  const cwd = project.path || ".";
-
-  // Escape for shell — write prompt to a temp approach via stdin instead
-  const escapedPrompt = prompt.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, " ").slice(0, 4000);
-
-  const result = await tauriInvoke<{ stdout: string; stderr: string; exit_code: number }>(
-    "run_shell_command",
-    {
-      cwd,
-      command: `claude --print --dangerously-skip-permissions "${escapedPrompt}"`,
-    },
-  );
-
-  const content = result.stdout || result.stderr || "";
-
-  // Simulate streaming — emit tokens word by word for a live feel
-  const words = content.split(/(\s+)/);
-  for (let i = 0; i < words.length; i++) {
-    callbacks.onToken(words[i]);
-    // Emit in bursts — small delay every few words
-    if (i % 5 === 0) await new Promise(r => setTimeout(r, 8));
-  }
-
-  return { content, toolCalls: [], finishReason: "stop" };
-}
-
-/**
- * Ollama provider — calls local Ollama API
- */
-async function sendOllama(
-  messages: AgentMessage[],
-  systemPrompt: string,
-  tools: any[],
-  callbacks: StreamCallbacks,
-  signal?: AbortSignal,
-): Promise<ProviderResponse> {
-  const url = `${settings.ollamaUrl}/api/chat`;
-
-  const ollamaMessages = [
-    { role: "system", content: systemPrompt },
-    ...messages.map(m => ({
-      role: m.role === "tool" ? "assistant" : m.role,
-      content: m.content || "",
-    })),
-  ];
-
-  const response = await tauriFetch(url, {
-    method: "POST",
-    signal,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: settings.defaultModel,
-      messages: ollamaMessages,
-      stream: true,
-    }),
-  });
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`Ollama error (${response.status}): ${text.slice(0, 200)}`);
-  }
-
-  // Ollama streams newline-delimited JSON (not SSE)
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("No response body");
-
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let content = "";
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-
-    let idx: number;
-    while ((idx = buffer.indexOf("\n")) !== -1) {
-      const line = buffer.slice(0, idx).trim();
-      buffer = buffer.slice(idx + 1);
-      if (!line) continue;
-
-      try {
-        const parsed = JSON.parse(line);
-        if (parsed.message?.content) {
-          content += parsed.message.content;
-          callbacks.onToken(parsed.message.content);
-        }
-        if (parsed.done) break;
-      } catch { /* skip */ }
-    }
-  }
-
-  return { content, toolCalls: [], finishReason: "stop" };
 }

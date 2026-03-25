@@ -76,6 +76,7 @@
             content={files.activeFile.content}
             language={files.activeFile.language}
             onchange={(v) => files.updateContent(files.activeIndex, v)}
+            highlights={files.highlightLines.filter(h => h.path === files.activeFile?.path)}
           />
         {/key}
       {:else}

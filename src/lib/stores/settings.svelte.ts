@@ -1,24 +1,19 @@
 import type { Gear } from "$lib/types";
 
-export type Provider = "openrouter" | "anthropic" | "claude-cli" | "ollama";
+export type Provider = "auto" | "auto-fast" | "manual";
 
 class SettingsStore {
-  provider: Provider = $state("openrouter");
+  provider: Provider = $state("auto");
   apiKey = $state("");
-  anthropicKey = $state("");
-  ollamaUrl = $state("http://localhost:11434");
-  defaultModel = $state("anthropic/claude-sonnet-4-6");
+  defaultModel = $state("moonshotai/kimi-k2.5");
+  defaultManualModel = $state("moonshotai/kimi-k2.5");
   gear: Gear = $state("ship");
   lastProjectPath = $state("");
-  claudeCliAvailable = $state(false);
+  browserosEnabled = $state(false);
+  browserosPort = $state(9000);
+  crawlRocketKey = $state("");
 
-  hasApiKey = $derived(
-    this.provider === "openrouter" ? this.apiKey.length > 0
-    : this.provider === "anthropic" ? this.anthropicKey.length > 0
-    : this.provider === "claude-cli" ? this.claudeCliAvailable
-    : this.provider === "ollama" ? true
-    : false
-  );
+  hasApiKey = $derived(this.apiKey.length > 0);
   initialized = $state(false);
   showOnboarding = $derived(this.initialized && !this.hasApiKey);
 
@@ -27,35 +22,34 @@ class SettingsStore {
       const saved = localStorage.getItem("darce_settings");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.provider) this.provider = parsed.provider;
+        // Migrate old provider types to new ones
+        const validProviders: Provider[] = ["auto", "auto-fast", "manual"];
+        if (parsed.provider && validProviders.includes(parsed.provider)) {
+          this.provider = parsed.provider;
+        }
         if (parsed.apiKey) this.apiKey = parsed.apiKey;
-        if (parsed.anthropicKey) this.anthropicKey = parsed.anthropicKey;
-        if (parsed.ollamaUrl) this.ollamaUrl = parsed.ollamaUrl;
         if (parsed.defaultModel) this.defaultModel = parsed.defaultModel;
+        if (parsed.defaultManualModel) this.defaultManualModel = parsed.defaultManualModel;
         if (parsed.gear) this.gear = parsed.gear;
         if (parsed.lastProjectPath) this.lastProjectPath = parsed.lastProjectPath;
+        if (parsed.browserosEnabled !== undefined) this.browserosEnabled = parsed.browserosEnabled;
+        if (parsed.browserosPort !== undefined) this.browserosPort = parsed.browserosPort;
+        if (parsed.crawlRocketKey) this.crawlRocketKey = parsed.crawlRocketKey;
+
+        // Migrate: old invalid provider types → auto
+        if (!validProviders.includes(this.provider)) {
+          this.provider = "auto";
+        }
+        // Migrate: old BrowserOS port default
+        if (this.browserosPort === 9239) {
+          this.browserosPort = 9000;
+        }
       }
     } catch (e) {
       console.error("Failed to load settings:", e);
     }
     this.initialized = true;
-    // Check if Claude CLI is available
-    this.checkClaudeCli();
-  }
-
-  async checkClaudeCli() {
-    try {
-      const { tauriInvoke } = await import("$lib/utils/ipc");
-      const result = await tauriInvoke<{ stdout: string; stderr: string; exit_code: number }>(
-        "run_shell_command", { cwd: ".", command: "claude --version" }
-      );
-      this.claudeCliAvailable = result.exit_code === 0;
-      if (this.claudeCliAvailable) {
-        console.log("[Darce] Claude Code CLI detected:", result.stdout.trim());
-      }
-    } catch {
-      this.claudeCliAvailable = false;
-    }
+    this.save(); // persist any migrations
   }
 
   private save() {
@@ -63,11 +57,13 @@ class SettingsStore {
       localStorage.setItem("darce_settings", JSON.stringify({
         provider: this.provider,
         apiKey: this.apiKey,
-        anthropicKey: this.anthropicKey,
-        ollamaUrl: this.ollamaUrl,
         defaultModel: this.defaultModel,
+        defaultManualModel: this.defaultManualModel,
         gear: this.gear,
         lastProjectPath: this.lastProjectPath,
+        browserosEnabled: this.browserosEnabled,
+        browserosPort: this.browserosPort,
+        crawlRocketKey: this.crawlRocketKey,
       }));
     } catch (e) {
       console.error("Failed to save settings:", e);
@@ -76,17 +72,19 @@ class SettingsStore {
 
   setProvider(p: Provider) { this.provider = p; this.save(); }
   setApiKey(key: string) { this.apiKey = key; this.save(); }
-  setAnthropicKey(key: string) { this.anthropicKey = key; this.save(); }
-  setOllamaUrl(url: string) { this.ollamaUrl = url; this.save(); }
   setModel(model: string) { this.defaultModel = model; this.save(); }
+  setManualModel(model: string) { this.defaultManualModel = model; this.save(); }
   setGear(gear: Gear) { this.gear = gear; this.save(); }
   setLastProject(path: string) { this.lastProjectPath = path; this.save(); }
+  setCrawlRocketKey(key: string) { this.crawlRocketKey = key; this.save(); }
+  setBrowseros(enabled: boolean, port?: number) {
+    this.browserosEnabled = enabled;
+    if (port !== undefined) this.browserosPort = port;
+    this.save();
+  }
 
-  /** Get the active API key based on current provider */
   get activeKey(): string {
-    if (this.provider === "openrouter") return this.apiKey;
-    if (this.provider === "anthropic") return this.anthropicKey;
-    return "";
+    return this.apiKey;
   }
 
   cycleGear() {

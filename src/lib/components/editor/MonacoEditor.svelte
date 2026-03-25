@@ -6,16 +6,19 @@
   import jsonWorker from "monaco-editor/esm/vs/language/json/json.worker?worker";
   import cssWorker from "monaco-editor/esm/vs/language/css/css.worker?worker";
   import htmlWorker from "monaco-editor/esm/vs/language/html/html.worker?worker";
+  import type { LineHighlight } from "$lib/stores/files.svelte";
 
-  let { content = "", language = "plaintext", onchange }: {
+  let { content = "", language = "plaintext", onchange, highlights = [] }: {
     content?: string;
     language?: string;
     onchange?: (value: string) => void;
+    highlights?: LineHighlight[];
   } = $props();
 
   let container: HTMLDivElement;
   let editor: monaco.editor.IStandaloneCodeEditor;
   let initialized = false;
+  let currentDecorations: string[] = [];
 
   self.MonacoEnvironment = {
     getWorker(_: unknown, label: string) {
@@ -276,6 +279,45 @@ declare function require(id: string): any;
       }
     }
   });
+
+  // Apply line highlight decorations when highlights change
+  $effect(() => {
+    if (!editor || highlights.length === 0) {
+      // Clear any existing decorations
+      if (editor && currentDecorations.length > 0) {
+        currentDecorations = editor.deltaDecorations(currentDecorations, []);
+      }
+      return;
+    }
+
+    const decorations: monaco.editor.IModelDeltaDecoration[] = highlights.flatMap(h =>
+      h.lines.map(line => ({
+        range: new monaco.Range(line, 1, line, 1),
+        options: {
+          isWholeLine: true,
+          className: h.type === "added" ? "editor-line-added" : "editor-line-modified",
+        },
+      }))
+    );
+
+    currentDecorations = editor.deltaDecorations(currentDecorations, decorations);
+
+    // Scroll to the first highlighted line
+    if (highlights.length > 0 && highlights[0].lines.length > 0) {
+      editor.revealLineInCenter(highlights[0].lines[0]);
+    }
+  });
 </script>
 
 <div bind:this={container} class="w-full h-full"></div>
+
+<style>
+  :global(.editor-line-modified) {
+    background-color: rgba(251, 191, 36, 0.08) !important;
+    border-left: 2px solid rgba(251, 191, 36, 0.4) !important;
+  }
+  :global(.editor-line-added) {
+    background-color: rgba(52, 211, 153, 0.08) !important;
+    border-left: 2px solid rgba(52, 211, 153, 0.4) !important;
+  }
+</style>

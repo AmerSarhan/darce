@@ -9,7 +9,9 @@
   import Onboarding from "$lib/components/Onboarding.svelte";
   import SettingsModal from "$lib/components/Settings.svelte";
   import BetaSignup from "$lib/components/BetaSignup.svelte";
+  import UpdateModal from "$lib/components/UpdateModal.svelte";
   import { settings } from "$lib/stores/settings.svelte";
+  import { updater } from "$lib/stores/updater.svelte";
 
   let showSettings = $state(false);
   import { files } from "$lib/stores/files.svelte";
@@ -21,6 +23,7 @@
 
   onMount(async () => {
     await settings.init();
+    updater.init();
     // Reopen last project
     if (settings.lastProjectPath) {
       try {
@@ -102,3 +105,4 @@
 <BetaSignup />
 <Onboarding />
 <SettingsModal open={showSettings} onclose={() => showSettings = false} />
+<UpdateModal />

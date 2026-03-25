@@ -8,35 +8,62 @@
   --font-mono: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
 }
 
-/* Shimmer — smooth left-to-right sweep */
+/* Performance timing tokens */
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-snappy: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-linear-app: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --duration-instant: 50ms;
+  --duration-fast: 100ms;
+  --duration-normal: 150ms;
+}
+
+/* Shimmer — GPU-accelerated sweep */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 .shimmer {
-  background: linear-gradient(90deg, oklch(0.25 0 0) 25%, oklch(0.3 0 0) 50%, oklch(0.25 0 0) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease infinite;
+  position: relative;
+  overflow: hidden;
+  background: hsl(0 0% 18%);
+}
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, hsl(0 0% 24%), transparent);
+  animation: shimmer 1s ease-in-out infinite;
+  will-change: transform;
 }
 
 /* Pulse glow for active states */
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  0%, 100% { box-shadow: 0 0 3px currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 8px currentColor; opacity: 0.6; }
 }
 .pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* Animate-in — ultra fast entry */
+/* Animate-in — GPU-accelerated entry */
 .animate-in {
-  animation-duration: 120ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+  animation-duration: 100ms;
+  animation-timing-function: var(--ease-out);
   animation-fill-mode: both;
 }
-.fade-in { animation-name: fadeIn; }
+.animate-in.fade-in {
+  animation: fadeIn 80ms var(--ease-out) forwards;
+}
+.animate-in.slide-in-from-bottom-1 {
+  animation: slideUp 80ms var(--ease-out) forwards;
+}
+.fade-in { animation-name: fadeIn; animation-duration: 80ms; }
 .zoom-in-95 { animation-name: zoomIn95; }
-.slide-in-from-bottom-1 { animation-name: slideUp; }
+.slide-in-from-bottom-1 { animation-name: slideUp; animation-duration: 100ms; }
 .slide-in-from-right { animation-name: slideLeft; }
 
 @keyframes fadeIn {
@@ -56,39 +83,52 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* Cursor blink — terminal style */
-@keyframes blink {
+/* Cursor blink — smooth terminal style */
+@keyframes cursor-blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
 .cursor-blink {
   display: inline-block;
   width: 2px;
-  height: 13px;
-  background: var(--color-accent);
-  margin-left: 1px;
+  height: 1em;
+  background: currentColor;
+  opacity: 0.6;
+  animation: cursor-blink 1s ease-in-out infinite;
   vertical-align: text-bottom;
-  border-radius: 1px;
-  animation: blink 0.8s step-end infinite;
+  margin-left: 1px;
 }
 
 /* Chat markdown */
 .chat-text { word-break: break-word; line-height: 1.6; }
-.chat-text code {
-  font-size: 11px;
-  background: oklch(0.2 0 0);
-  padding: 1px 4px;
+.chat-text code:not(pre code) {
+  background: rgba(63, 63, 70, 0.3);
+  padding: 1px 5px;
   border-radius: 3px;
+  font-size: 11px;
   color: oklch(0.75 0 0);
 }
 .chat-text pre {
-  margin: 6px 0;
+  background: rgba(24, 24, 27, 0.8);
+  border: 1px solid rgba(63, 63, 70, 0.3);
   border-radius: 6px;
-  border: 1px solid oklch(0.25 0 0);
+  padding: 10px 12px;
+  margin: 6px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-x: auto;
 }
 .chat-text pre code {
   background: none;
   padding: 0;
+}
+.chat-text a {
+  color: rgba(250, 204, 21, 0.7);
+  text-decoration: none;
+}
+.chat-text a:hover {
+  color: rgba(250, 204, 21, 1);
+  text-decoration: underline;
 }
 .chat-text table { margin: 6px 0; }
 .chat-text br + br { display: none; }
@@ -103,17 +143,27 @@
 }
 ::-webkit-scrollbar-thumb:hover { background: oklch(0.38 0 0); }
 
-/* Focus ring */
-:focus-visible {
-  outline: 1px solid var(--color-accent);
-  outline-offset: -1px;
-  border-radius: 4px;
+/* Focus ring — faster */
+*:focus-visible {
+  outline: 1px solid rgba(250, 204, 21, 0.3);
+  outline-offset: 1px;
+  transition: outline-color var(--duration-instant);
 }
 
 /* Transitions */
 * { scroll-behavior: smooth; }
-button, a, select, input, textarea {
+a, select, input, textarea {
   transition: all 100ms ease;
+}
+
+/* Snappy button press */
+button {
+  transition: transform var(--duration-instant) ease,
+              opacity var(--duration-fast) ease;
+}
+button:active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: 30ms;
 }
 
 /* Base */
@@ -131,11 +181,175 @@ html, body {
   background: oklch(0.72 0.11 75 / 0.25);
 }
 
+/* Bouncing dots — for thinking/waiting states */
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+.bounce-dot { animation: bounce-dot 1s ease-in-out infinite; }
+.bounce-dot-1 { animation-delay: 0ms; }
+.bounce-dot-2 { animation-delay: 150ms; }
+.bounce-dot-3 { animation-delay: 300ms; }
+
+/* Action timeline connector */
+.action-timeline {
+  position: relative;
+  padding-left: 12px;
+}
+.action-timeline::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, rgba(113, 113, 122, 0.3) 8px, rgba(113, 113, 122, 0.3) calc(100% - 8px), transparent);
+}
+.action-timeline > :global(div) {
+  position: relative;
+}
+.action-timeline > :global(div)::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #52525b;
+  z-index: 1;
+}
+.action-timeline > :global(div.action-done)::before {
+  background: #34d399;
+}
+.action-timeline > :global(div.action-active)::before {
+  background: #fbbf24;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.5);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* File flash — highlight newly created/modified files */
+@keyframes file-flash {
+  0% { background-color: rgba(251, 191, 36, 0.15); }
+  100% { background-color: transparent; }
+}
+.file-modified {
+  animation: file-flash 3s ease-out forwards;
+}
+.file-modified-flash {
+  animation: file-flash 3s ease-out forwards;
+}
+.file-created {
+  animation: file-flash 3s ease-out forwards;
+  background-color: rgba(52, 211, 153, 0.1);
+}
+.file-created-flash {
+  animation: file-flash 3s ease-out forwards;
+  background-color: rgba(52, 211, 153, 0.1);
+}
+
+/* Shimmer for streaming text */
+@keyframes shimmer-text {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+.streaming-text {
+  animation: shimmer-text 1.5s ease-in-out infinite;
+}
+
+/* Editor line highlights */
+.editor-line-modified {
+  background-color: rgba(251, 191, 36, 0.08) !important;
+  border-left: 2px solid rgba(251, 191, 36, 0.4) !important;
+}
+.editor-line-added {
+  background-color: rgba(52, 211, 153, 0.08) !important;
+  border-left: 2px solid rgba(52, 211, 153, 0.4) !important;
+}
+.editor-glyph-modified {
+  background-color: rgba(251, 191, 36, 0.6);
+  margin-left: 3px;
+  width: 3px !important;
+  border-radius: 1px;
+}
+.editor-glyph-added {
+  background-color: rgba(52, 211, 153, 0.6);
+  margin-left: 3px;
+  width: 3px !important;
+  border-radius: 1px;
+}
+
 /* Action badge base */
 .action-badge {
   @apply flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs;
-  transition: all 120ms ease;
+  transition: all var(--duration-fast) ease;
 }
 .action-badge:hover {
   filter: brightness(1.15);
+}
+
+/* Smooth scrolling in chat */
+.chat-scroll {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(63, 63, 70, 0.5) transparent;
+}
+.chat-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(63, 63, 70, 0.5);
+  border-radius: 2px;
+}
+.chat-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(82, 82, 91, 0.8);
+}
+
+/* Tool card hover */
+.tool-card {
+  transition: all var(--duration-fast) ease;
+}
+.tool-card:hover {
+  background: rgba(39, 39, 42, 0.5);
+}
+
+/* Smooth textarea auto-resize */
+.chat-input {
+  min-height: 40px;
+  max-height: 120px;
+  transition: height var(--duration-fast) ease;
+  field-sizing: content;
+}
+
+/* Checkmark pop animation for completed actions */
+@keyframes check-pop {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.check-pop {
+  animation: check-pop 200ms ease-out;
+}
+
+/* Virtualize off-screen chat messages */
+.chat-message-item {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px;
+  contain: layout style paint;
+}
+
+/* Menu items — faster hover */
+.menu-item {
+  transition: all 50ms ease;
+}
+
+/* GPU-accelerated panel transitions */
+.panel-slide {
+  transition: transform var(--duration-normal) var(--ease-linear-app);
+  will-change: transform;
 }

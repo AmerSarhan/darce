@@ -2,6 +2,7 @@ mod commands;
 mod security;
 
 use commands::{db, shell::ProcessState};
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -9,6 +10,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(ProcessState {
             active_pid: Mutex::new(None),
+            background: Mutex::new(HashMap::new()),
         })
         .plugin(
             tauri_plugin_sql::Builder::new()
@@ -38,6 +40,10 @@ pub fn run() {
             commands::shell::check_dangerous_command,
             commands::shell::kill_process,
             commands::shell::run_shell_command,
+            commands::shell::spawn_background_process,
+            commands::shell::kill_background_process,
+            commands::search::search_files,
+            commands::search::glob_files,
             commands::ai::send_chat_message,
             commands::ai::validate_api_key,
             commands::ai::list_models,

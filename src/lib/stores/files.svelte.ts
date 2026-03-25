@@ -1,10 +1,27 @@
 import type { OpenFile } from "$lib/types";
 import { getFileName, getLanguageFromPath } from "$lib/utils/paths";
 
+export interface LineHighlight {
+  path: string;
+  lines: number[];
+  type: "added" | "modified";
+}
+
 class FilesStore {
   openFiles = $state<OpenFile[]>([]);
   activeIndex = $state(0);
   activeFile = $derived(this.openFiles[this.activeIndex] ?? null);
+
+  /** Tracks line ranges to highlight in the editor after agent edits. */
+  highlightLines = $state<LineHighlight[]>([]);
+
+  /** Add a line highlight for a file, auto-clears after 4 seconds. */
+  addHighlight(path: string, lines: number[], type: "added" | "modified" = "modified") {
+    this.highlightLines = [...this.highlightLines, { path, lines, type }];
+    setTimeout(() => {
+      this.highlightLines = this.highlightLines.filter(h => h.path !== path);
+    }, 4000);
+  }
 
   /** Open a file or update its content if already open */
   open(path: string, content: string) {

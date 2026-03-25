@@ -47,7 +47,12 @@
       "allow": [
         { "url": "https://openrouter.ai/*" },
         { "url": "https://api.anthropic.com/*" },
-        { "url": "https://api.openai.com/*" }
+        { "url": "https://api.openai.com/*" },
+        { "url": "https://api.github.com/*" },
+        { "url": "https://api.crawlrocket.com/*" },
+        { "url": "https://*" },
+        { "url": "http://localhost:*" },
+        { "url": "http://127.0.0.1:*" }
       ]
     }
   ]

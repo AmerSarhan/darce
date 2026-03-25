@@ -163,7 +163,7 @@
         <p class="text-xs text-zinc-500 p-2">Empty folder</p>
       {:else}
         {#each project.files as entry (entry.path)}
-          <FileNode {entry} onfileclick={handleFileClick} />
+          <FileNode {entry} onfileclick={handleFileClick} recentlyModified={project.recentlyModified} />
         {/each}
       {/if}
     {/if}

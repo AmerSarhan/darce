@@ -4,6 +4,7 @@
   import { chat } from "$lib/stores/chat.svelte";
   import { settings } from "$lib/stores/settings.svelte";
   import { terminal } from "$lib/stores/terminal.svelte";
+  import { updater } from "$lib/stores/updater.svelte";
   import { tauriInvoke } from "$lib/utils/ipc";
   import { open } from "@tauri-apps/plugin-dialog";
   import type { FileEntry } from "$lib/types";
@@ -116,8 +117,25 @@
     </button>
     {#if activeMenu === "help"}
       <div class="absolute top-7 left-0 w-56 bg-zinc-900 border border-zinc-800 rounded-md shadow-2xl py-1 z-50 animate-in fade-in" style="animation-duration: 60ms;">
+        <button onclick={() => { closeMenu(); updater.openWhatsNew(); }} class="menu-item">What's New</button>
+        <button onclick={() => { updater.check(true); }} class="menu-item">
+          {#if updater.checking}
+            Checking...
+          {:else}
+            Check for Updates
+          {/if}
+          {#if updater.hasUpdate}
+            <span class="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          {/if}
+        </button>
+        {#if updater.checkStatus}
+          <div class="px-3 py-1.5 text-[10px] {updater.hasUpdate ? 'text-emerald-400' : 'text-zinc-500'}">
+            {updater.checkStatus}
+          </div>
+        {/if}
+        <div class="h-px bg-zinc-800/60 my-0.5"></div>
         <div class="px-3 py-2 text-[10px] text-zinc-500 space-y-1.5">
-          <p class="text-zinc-300 font-medium text-[11px]">Darce v0.1.0 Beta</p>
+          <p class="text-zinc-300 font-medium text-[11px]">Darce v{updater.currentVersion} Beta</p>
           <p>The AI coder that makes you smarter.</p>
           <div class="h-px bg-zinc-800/60 my-1"></div>
           <div class="space-y-0.5">

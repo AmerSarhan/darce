@@ -48,26 +48,41 @@ You pick the depth. Switch anytime.
 
 ## Features
 
-**AI Agent**
-- Creates files, runs terminal commands, reads your codebase, installs dependencies
-- Agentic loop with tool calling — plans, executes, verifies
-- Full project context in every request (file tree, open files, terminal output)
+**AI Agent v2**
+- 16 tools — create, edit, read, delete, search, glob, git, browse, and more
+- Smart model rotation with automatic fallback (Auto / Auto Fast / Manual)
+- Parallel tool execution — independent operations run simultaneously
+- Resilience engine — silent recovery from rate limits, empty responses, timeouts
+- Background process manager — start, stop, restart dev servers
+- Project memory — `.darce/instructions.md` and `.darce/memory.md` persist context across sessions
+- Web browsing — scrape pages with CrawlRocket API, search Google, or use BrowserOS for full automation
+- Git integration — status, diff, commit from the agent
+- Lean context injection — minimal tokens per request for faster responses
 
 **Editor**
 - Monaco (same engine as VS Code) with syntax highlighting, autocomplete, IntelliSense
-- Multi-tab, file tree with search, context menus
-- Ctrl+S saves to disk. All keyboard shortcuts you'd expect.
+- Inline diff highlights — see exactly what the AI changed (green = added, amber = modified)
+- File tree with modification flash — files glow when created or edited
+- Multi-tab, context menus, Ctrl+S saves to disk
+
+**Live Streaming UX**
+- RAF-buffered token rendering — smooth 60fps text streaming, no jank
+- Tool action cards with live diffs — see edit_file changes as red/green inline
+- Elapsed timer + action counter in header
+- Contextual status — "Analyzing results...", "Reviewing changes...", never blank
+- Process control bar — see running servers, stop with one click
+- GPU-accelerated animations — transform-only, 80ms tool cards, spring easing
 
 **Teaching**
 - AI-powered code analysis after every action
 - Concept cards with adjustable depth (Brief / Standard / Deep / ELI5)
 - Interactive quizzes in Learn mode
-- Understands patterns across React, CSS, TypeScript, Node.js, and more
 
 **Platform**
-- 200+ models via OpenRouter — Claude, GPT, Gemini, Llama, Grok, Kimi, and more
-- ~8MB installer. Native desktop. Built with Tauri + Rust.
-- Chat history saved per project. Settings persist. Last project reopens on launch.
+- 200+ models via OpenRouter — Kimi K2.5 (default), Claude, GPT, Gemini, Llama, Grok, and more
+- Smart model rotation — tries best models first, falls back on errors, tracks latency
+- Prompt caching — automatic for most providers, explicit for Anthropic
+- ~8MB installer. Native desktop. Built with Tauri 2 + Rust.
 - Bring your own API key. No account required. No data collection.
 
 ---
@@ -99,6 +114,33 @@ On first launch: paste your [OpenRouter API key](https://openrouter.ai/keys). Op
 
 ---
 
+## Agent Tools
+
+Darce's AI agent has 16 tools — the same capabilities as professional coding agents:
+
+| Tool | Description |
+|------|-------------|
+| `create_file` | Create new files with complete content |
+| `edit_file` | Surgical search/replace edits with inline diff preview |
+| `read_file` | Read files with optional line range |
+| `delete_file` | Delete files or directories |
+| `list_files` | List project file tree |
+| `glob_files` | Find files by pattern (`*.tsx`, `src/**/*.ts`) |
+| `search_files` | Grep across the project with regex |
+| `run_command` | Execute shell commands (auto-detects servers) |
+| `run_server` | Start background processes (dev servers, watchers) |
+| `stop_process` | Stop a running background process |
+| `restart_process` | Restart a background process |
+| `browse_web` | Scrape any URL (CrawlRocket API or HTTP fallback) |
+| `web_search` | Search Google and get scraped results |
+| `git_status` | Show git status, branch, modified files |
+| `git_diff` | Show git diff of changes |
+| `git_commit` | Stage and commit changes |
+| `save_memory` | Persist project knowledge across sessions |
+| `open_url` | Open URL in default browser |
+
+---
+
 ## Architecture
 
 | Layer | Technology |
@@ -107,7 +149,9 @@ On first launch: paste your [OpenRouter API key](https://openrouter.ai/keys). Op
 | Frontend | Svelte 5, TypeScript |
 | Editor | Monaco Editor |
 | Styling | Tailwind CSS v4 |
-| AI | OpenRouter (tool calling, SSE streaming) |
+| AI | OpenRouter (smart model rotation, SSE streaming) |
+| Web Scraping | CrawlRocket API (optional) |
+| Browser Automation | BrowserOS MCP (optional) |
 
 ---
 
@@ -117,7 +161,9 @@ Most AI coding tools optimize for speed. Darce optimizes for understanding.
 
 **Teaching is built in, not bolted on.** Every file the AI writes gets broken down into concepts, patterns, and decisions — automatically.
 
-**Model agnostic.** 200+ models through one API key. Switch mid-conversation. No vendor lock-in.
+**Full agent, not just autocomplete.** 16 tools, parallel execution, background processes, web browsing, git integration. Darce builds complete projects, not just code snippets.
+
+**Model agnostic.** 200+ models through one API key. Smart rotation picks the best model and falls back on errors. No vendor lock-in.
 
 **Lightweight.** ~8MB native app. Tauri + Rust. Not Electron.
 
@@ -127,12 +173,17 @@ Most AI coding tools optimize for speed. Darce optimizes for understanding.
 
 ## Roadmap
 
+- [x] Smart model rotation (Auto / Auto Fast / Manual)
+- [x] Parallel tool execution
+- [x] Background process manager
+- [x] Git integration (status, diff, commit)
+- [x] Web browsing (CrawlRocket + BrowserOS)
+- [x] Project memory (.darce files)
+- [x] Inline diff highlights in editor
 - [ ] Anthropic Direct API support
-- [ ] Claude Code CLI integration (use your Claude Max/Pro subscription)
 - [ ] Ollama local model support
-- [ ] Git integration (status, commit, diff)
 - [ ] Live browser preview
-- [ ] VS Code extension (Learn mode as a standalone extension)
+- [ ] VS Code extension (Learn mode standalone)
 - [ ] Concept progress tracking across sessions
 - [ ] Community concept library
 

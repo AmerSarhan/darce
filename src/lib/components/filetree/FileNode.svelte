@@ -2,10 +2,11 @@
   import type { FileEntry } from "$lib/types";
   import FileNode from "./FileNode.svelte";
 
-  let { entry, depth = 0, onfileclick }: {
+  let { entry, depth = 0, onfileclick, recentlyModified = new Set<string>() }: {
     entry: FileEntry;
     depth?: number;
     onfileclick: (entry: FileEntry) => void;
+    recentlyModified?: Set<string>;
   } = $props();
 
   // Load saved expand state, default open for depth < 2
@@ -60,6 +61,7 @@
 
 <button onclick={handleClick}
   class="w-full flex items-center gap-1.5 py-[2px] text-[12px] hover:bg-zinc-800/50 rounded-[3px] text-left group"
+  class:file-modified={recentlyModified.has(entry.path)}
   style="padding-left: {depth * 14 + 6}px">
   {#if entry.is_dir}
     <span class="text-zinc-600 w-3 text-center text-[8px] transition-transform duration-75 inline-block {expanded ? 'rotate-90' : ''}">&rsaquo;</span>
@@ -72,6 +74,16 @@
 
 {#if entry.is_dir && expanded && entry.children}
   {#each entry.children as child (child.path)}
-    <FileNode entry={child} depth={depth + 1} {onfileclick} />
+    <FileNode entry={child} depth={depth + 1} {onfileclick} {recentlyModified} />
   {/each}
 {/if}
+
+<style>
+  :global(.file-modified) {
+    animation: file-flash 3s ease-out;
+  }
+  @keyframes file-flash {
+    0% { background-color: rgba(251, 191, 36, 0.15); }
+    100% { background-color: transparent; }
+  }
+</style>
