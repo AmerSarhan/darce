@@ -1,8 +1,8 @@
 /**
  * Teacher — analyzes code and generates structured teaching content.
- * Uses Rust backend for reliable non-streaming calls.
+ * Uses frontend HTTP plugin directly for speed (no Rust round-trip).
  */
-import { tauriInvoke } from "$lib/utils/ipc";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { settings } from "$lib/stores/settings.svelte";
 
 export interface TeachingContent {
@@ -56,19 +56,41 @@ ${codeSnippet}
 JSON only, no markdown wrapping:
 {"summary":"one sentence","concepts":[{"name":"Name","tag":"react|css|js|html|node|pattern","oneLiner":"short","explanation":"detail","difficulty":"beginner|intermediate|advanced"}],"quiz":{"question":"q about this code","options":["a","b","c","d"],"correctIndex":0,"explanation":"why"}}`;
 
-  // Try fast models in order
-  const models = ["google/gemini-2.5-flash", "openai/gpt-4.1-mini"];
+  // Use fastest cheap models — direct HTTP call (no Rust round-trip)
+  const models = [
+    "mistralai/codestral-2508",
+    "morph/morph-v3-fast",
+    "meta-llama/llama-4-scout",
+  ];
 
   for (const model of models) {
     try {
       console.log("[Teacher] Trying", model, "for:", fileName);
       const t0 = performance.now();
 
-      const result = await tauriInvoke<string>("simple_chat", {
-        apiKey: settings.activeKey,
-        model,
-        prompt,
+      const response = await tauriFetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${settings.activeKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://darce.dev",
+          "X-OpenRouter-Title": "Darce",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 1200,
+          temperature: 0.3,
+        }),
       });
+
+      if (!response.ok) {
+        console.warn("[Teacher]", model, "HTTP", response.status);
+        continue;
+      }
+
+      const json = await response.json();
+      const result = json.choices?.[0]?.message?.content || "";
 
       console.log("[Teacher]", model, "responded in", Math.round(performance.now() - t0), "ms, length:", result.length);
 
@@ -87,7 +109,24 @@ JSON only, no markdown wrapping:
         jsonStr = jsonStr.slice(startIdx, endIdx + 1);
       }
 
-      const parsed = JSON.parse(jsonStr) as TeachingContent;
+      // Fix truncated JSON — close any open arrays/objects
+      let parsed: TeachingContent;
+      try {
+        parsed = JSON.parse(jsonStr);
+      } catch {
+        // Try to repair: close open strings, arrays, objects
+        let repaired = jsonStr
+          .replace(/,\s*$/, "")      // trailing comma
+          .replace(/,\s*([}\]])/g, "$1"); // comma before close
+        // Count open brackets and close them
+        const opens = (repaired.match(/\[/g) || []).length;
+        const closes = (repaired.match(/\]/g) || []).length;
+        for (let i = 0; i < opens - closes; i++) repaired += "]";
+        const openBraces = (repaired.match(/\{/g) || []).length;
+        const closeBraces = (repaired.match(/\}/g) || []).length;
+        for (let i = 0; i < openBraces - closeBraces; i++) repaired += "}";
+        parsed = JSON.parse(repaired);
+      }
       console.log("[Teacher] Success with", model, "-", parsed.concepts?.length, "concepts");
       return parsed;
     } catch (e) {
