@@ -41,7 +41,6 @@
     "fs:allow-read-dir",
     "dialog:default",
     "dialog:allow-open",
-    "aptabase:allow-track-event",
     "http:default",
     {
       "identifier": "http:default",
