@@ -22,11 +22,6 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .setup(|app| {
-            // Analytics — non-blocking, app works fine without it
-            let _ = app.handle().plugin(
-                tauri_plugin_aptabase::Builder::new("A-EU-1239712183").build()
-            );
-
             if cfg!(debug_assertions) {
                 let _ = app.handle().plugin(
                     tauri_plugin_log::Builder::default()
