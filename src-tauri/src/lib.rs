@@ -17,18 +17,22 @@ pub fn run() {
                 .add_migrations("sqlite:darce.db", db::get_migrations())
                 .build(),
         )
-        .plugin(tauri_plugin_aptabase::Builder::new("A-EU-1239712183").build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .setup(|app| {
+            // Analytics — non-blocking, app works fine without it
+            let _ = app.handle().plugin(
+                tauri_plugin_aptabase::Builder::new("A-EU-1239712183").build()
+            );
+
             if cfg!(debug_assertions) {
-                app.handle().plugin(
+                let _ = app.handle().plugin(
                     tauri_plugin_log::Builder::default()
                         .level(log::LevelFilter::Info)
                         .build(),
-                )?;
+                );
             }
             Ok(())
         })
